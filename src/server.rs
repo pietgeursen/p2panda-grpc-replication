@@ -31,10 +31,12 @@ impl Replication for MyReplication {
         request: Request<GetEntriesDeltaRequest>,
     ) -> Result<Response<GetEntriesDeltaResponse>, Status> {
         println!("Got a request: {:?}", request);
+        println!("author: {:?}", request.into_inner().author_known_log_heights);
+
 
         let author_known_log_heights = vec![];
-        let reply = GetEntriesDeltaResponse{
-            author_known_log_heights
+        let reply = GetEntriesDeltaResponse {
+            author_known_log_heights,
         };
         Ok(Response::new(reply))
     }
