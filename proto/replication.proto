@@ -1,0 +1,10 @@
+syntax = "proto3";
+package replication;
+
+import "get_entries.proto";
+import "get_entries_delta.proto";
+
+service Replication {
+  rpc GetEntries(GetEntriesRequest) returns (GetEntriesResponse);
+  rpc GetEntriesDelta(GetEntriesDeltaRequest) returns (GetEntriesDeltaResponse); 
+}

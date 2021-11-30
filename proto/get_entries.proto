@@ -1,0 +1,33 @@
+syntax = "proto3";
+package replication;
+
+message GetEntriesRequest{
+  bytes author = 1;
+  oneof request_type{
+    SingleEntryRequest single_entry = 2;
+    AllLogsRequest all_logs = 3;
+    RangeRequest range = 4;
+  }
+}
+
+message GetEntriesResponse {
+  repeated Entry entries = 1;
+}
+
+message SingleEntryRequest {
+  uint64 log_id = 1;
+  uint64 sequence = 2;
+}
+
+message AllLogsRequest{}
+
+message RangeRequest {
+  uint64 log_id = 1;
+  uint64 sequence_start = 2;
+  uint64 sequence_end = 3;
+}
+
+message Entry{
+  bytes entry_bytes = 1;
+  bytes payload_bytes = 2;
+}

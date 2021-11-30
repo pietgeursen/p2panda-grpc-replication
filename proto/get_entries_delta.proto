@@ -1,0 +1,20 @@
+syntax = "proto3";
+package replication;
+
+message GetEntriesDeltaRequest{
+  repeated AuthorKnownLogHeights author_known_log_heights = 1;
+}
+
+message GetEntriesDeltaResponse{
+  repeated AuthorKnownLogHeights author_known_log_heights = 1;
+}
+
+message AuthorKnownLogHeights{
+  bytes author = 1;
+  repeated LogHeight known_log_heights = 2;
+}
+
+message LogHeight{
+  uint64 log_id = 1;
+  uint64 sequence = 2;
+}
