@@ -3,8 +3,12 @@ package replication;
 
 import "get_entries.proto";
 import "get_entries_delta.proto";
+import "get_author_aliases.proto";
 
 service Replication {
-  rpc GetEntries(GetEntriesRequest) returns (GetEntriesResponse);
+  rpc GetAuthorAliases(GetAuthorAliasesRequest) returns (GetAuthorAliasesResponse);
+  rpc GetAllEntriesByAuthors(GetAllEntriesByAuthorsRequest) returns (GetEntriesResponse);
+  rpc GetSingleEntry(GetSingleEntryRequest) returns (GetEntriesResponse);
+  rpc GetEntriesBySequenceRange(GetEntriesBySequenceRangeRequest) returns (GetEntriesResponse);
   rpc GetEntriesDelta(GetEntriesDeltaRequest) returns (GetEntriesDeltaResponse); 
 }

@@ -1,0 +1,13 @@
+syntax = "proto3";
+package replication;
+
+// To use `author_alias` you'll need to first get author_aliases using the GetAuthorAliases endpoint. This also returns a cache_key that you must provide as part of a request using the `Author` message type.
+// If the `cache_key` is expired you'll get an `AuthorCacheKeyInvalidError` response.
+message Author {
+  oneof author_type {
+    bytes author_key = 1;
+    uint32 author_alias = 2;
+  }
+}
+
+message AuthorCacheKeyInvalidError {}

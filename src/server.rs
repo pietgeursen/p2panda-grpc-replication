@@ -1,9 +1,7 @@
 use tonic::{transport::Server, Request, Response, Status};
 
 use replication::replication_server::{Replication, ReplicationServer};
-use replication::{
-    GetEntriesDeltaRequest, GetEntriesDeltaResponse, GetEntriesRequest, GetEntriesResponse,
-};
+use replication::*;
 
 pub mod replication {
     tonic::include_proto!("replication"); // The string specified here must match the proto package name
@@ -14,15 +12,43 @@ pub struct MyReplication {}
 
 #[tonic::async_trait]
 impl Replication for MyReplication {
-    async fn get_entries(
+
+    async fn get_author_aliases(
         &self,
-        request: Request<GetEntriesRequest>,
+        request: Request<GetAuthorAliasesRequest>,
+    ) -> Result<Response<GetAuthorAliasesResponse>, Status> {
+        println!("Got a request: {:?}", request);
+
+        let reply = GetAuthorAliasesResponse { response: None };
+        Ok(Response::new(reply))
+    }
+    async fn get_all_entries_by_authors(
+        &self,
+        request: Request<GetAllEntriesByAuthorsRequest>,
     ) -> Result<Response<GetEntriesResponse>, Status> {
         println!("Got a request: {:?}", request);
 
-        let entries = vec![];
+        let reply = GetEntriesResponse { response: None };
+        Ok(Response::new(reply))
+    }
 
-        let reply = GetEntriesResponse { entries };
+    async fn get_single_entry(
+        &self,
+        request: Request<GetSingleEntryRequest>,
+    ) -> Result<Response<GetEntriesResponse>, Status> {
+        println!("Got a request: {:?}", request);
+
+        let reply = GetEntriesResponse { response: None };
+        Ok(Response::new(reply))
+    }
+
+    async fn get_entries_by_sequence_range(
+        &self,
+        request: Request<GetEntriesBySequenceRangeRequest>,
+    ) -> Result<Response<GetEntriesResponse>, Status> {
+        println!("Got a request: {:?}", request);
+
+        let reply = GetEntriesResponse { response: None };
         Ok(Response::new(reply))
     }
 
@@ -31,24 +57,51 @@ impl Replication for MyReplication {
         request: Request<GetEntriesDeltaRequest>,
     ) -> Result<Response<GetEntriesDeltaResponse>, Status> {
         println!("Got a request: {:?}", request);
-        println!("author: {:?}", request.into_inner().author_known_log_heights);
 
-
-        let author_known_log_heights = vec![];
-        let reply = GetEntriesDeltaResponse {
-            author_known_log_heights,
-        };
+        let reply = GetEntriesDeltaResponse { response: None };
         Ok(Response::new(reply))
     }
+
+
+
+
+//    async fn get_entries(
+//        &self,
+//        request: Request<GetEntriesRequest>,
+//    ) -> Result<Response<GetEntriesResponse>, Status> {
+//        println!("Got a request: {:?}", request);
+//
+//        let entries = vec![];
+//
+//        let reply = GetEntriesResponse { entries };
+//        Ok(Response::new(reply))
+//    }
+//
+//    async fn get_entries_delta(
+//        &self,
+//        request: Request<GetEntriesDeltaRequest>,
+//    ) -> Result<Response<GetEntriesDeltaResponse>, Status> {
+//        println!("Got a request: {:?}", request);
+//        println!("author: {:?}", request.into_inner().author_known_log_heights);
+//
+//
+//        let author_known_log_heights = vec![];
+//        let reply = GetEntriesDeltaResponse {
+//            author_known_log_heights,
+//        };
+//        Ok(Response::new(reply))
+//    }
 }
 
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let addr = "[::1]:50051".parse()?;
     let greeter = MyReplication::default();
+    let service = ReplicationServer::new(greeter);
+
 
     Server::builder()
-        .add_service(ReplicationServer::new(greeter))
+        .add_service(service)
         .serve(addr)
         .await?;
 

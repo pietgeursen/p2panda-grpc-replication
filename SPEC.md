@@ -36,6 +36,8 @@ tags: research
 **Request**
 
 If an empty array is sent the node requests all known entries.
+PG: Nooo, not a good idea. Great way to enable someone to ddos your server.
+
 
 ```
 [
@@ -73,7 +75,13 @@ The response can be empty if there are no new entries.
 ]
 ```
     
-### `panda_getEntries`
+### `panda_getAllEntriesByAuthors`
+
+### `panda_getAllEntriesByAuthorIds
+
+### `panda_getSingleEntry`
+
+### `panda_getEntriesBySequenceRange`
 
 **Request**
 

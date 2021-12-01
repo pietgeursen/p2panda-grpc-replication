@@ -1,33 +1,49 @@
 syntax = "proto3";
 package replication;
 
-message GetEntriesRequest{
-  bytes author = 1;
-  oneof request_type{
-    SingleEntryRequest single_entry = 2;
-    AllLogsRequest all_logs = 3;
-    RangeRequest range = 4;
+import "author.proto";
+
+message GetAllEntriesByAuthorsRequest{
+  string cache_key = 1;
+  repeated Author authors = 2;
+}
+
+message GetEntriesBySequenceRangeRequest{
+  message RangeRequest {
+    Author author = 1;
+    uint64 log_id = 2;
+    uint64 sequence_start = 3;
+    uint64 sequence_end = 4;
   }
+
+  string cache_key = 1;
+  repeated RangeRequest range = 2;
+}
+
+message GetSingleEntryRequest {
+  string cache_key = 1;
+  Author author = 2;
+  uint64 log_id = 3;
+  uint64 sequence = 4;
 }
 
 message GetEntriesResponse {
-  repeated Entry entries = 1;
-}
+  message Errors{
+    oneof error_type {
+      AuthorCacheKeyInvalidError author_cache_key_invalid_error = 1;
+    }
+  }
+  message Entry{
+    bytes entry_bytes = 1;
+    bytes payload_bytes = 2;
+  }
 
-message SingleEntryRequest {
-  uint64 log_id = 1;
-  uint64 sequence = 2;
-}
+  message Entries {
+    repeated Entry entries = 1;
+  }
 
-message AllLogsRequest{}
-
-message RangeRequest {
-  uint64 log_id = 1;
-  uint64 sequence_start = 2;
-  uint64 sequence_end = 3;
-}
-
-message Entry{
-  bytes entry_bytes = 1;
-  bytes payload_bytes = 2;
+  oneof response {
+    Entries result = 1;
+    Errors error = 2;
+  }
 }

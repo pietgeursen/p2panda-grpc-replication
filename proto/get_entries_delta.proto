@@ -1,16 +1,32 @@
 syntax = "proto3";
 package replication;
 
+import "author.proto";
+
 message GetEntriesDeltaRequest{
-  repeated AuthorKnownLogHeights author_known_log_heights = 1;
+  string cache_key = 1;
+  repeated AuthorKnownLogHeights author_known_log_heights = 2;
 }
 
 message GetEntriesDeltaResponse{
-  repeated AuthorKnownLogHeights author_known_log_heights = 1;
+  message Errors{
+    oneof error_type {
+      AuthorCacheKeyInvalidError author_cache_key_invalid_error = 1;
+    }
+  }
+
+  message AuthorsKnownLogHeights {
+    repeated AuthorsKnownLogHeights author_known_log_heights = 1;
+  }
+
+  oneof response {
+    AuthorsKnownLogHeights result = 1;
+    Errors error = 2;
+  }
 }
 
 message AuthorKnownLogHeights{
-  bytes author = 1;
+  Author author = 1;
   repeated LogHeight known_log_heights = 2;
 }
 
