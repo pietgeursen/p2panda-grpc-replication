@@ -19,7 +19,10 @@ impl Replication for MyReplication {
     ) -> Result<Response<GetAuthorAliasesResponse>, Status> {
         println!("Got a request: {:?}", request);
 
-        let reply = GetAuthorAliasesResponse { response: None };
+        let error = AuthorAliasesNotSupportedError{};
+        let error_type = Some(get_author_aliases_response::errors::ErrorType::AuthorAliasesNotSupported(error));
+
+        let reply = GetAuthorAliasesResponse { response: Some(get_author_aliases_response::Response::Error(get_author_aliases_response::Errors{error_type})) };
         Ok(Response::new(reply))
     }
     async fn get_all_entries_by_authors(

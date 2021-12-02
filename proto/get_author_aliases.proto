@@ -5,27 +5,13 @@ message GetAuthorAliasesRequest{
   repeated bytes author_keys = 1;
 }
 
-message AuthorAliasesNotSupportedError {}
-
 message GetAuthorAliasesResponse{
-  message Errors{
-    oneof error_type {
-      AuthorAliasesNotSupportedError author_aliases_not_supported = 1;
-    }
-  }
 
   message AuthorAlias{
     bytes author_key = 1;
     uint32 author_alias = 2;
   }
 
-  message AuthorAliases {
-    string cache_key = 1;
-    AuthorAlias author_aliases = 2;
-  }
-
-  oneof response {
-    AuthorAliases result = 1;
-    Errors error = 2;
-  }
+  string cache_key = 1;
+  repeated AuthorAlias author_aliases = 2;
 }

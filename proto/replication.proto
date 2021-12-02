@@ -4,11 +4,20 @@ package replication;
 import "get_entries.proto";
 import "get_entries_delta.proto";
 import "get_author_aliases.proto";
+import "new_log_heights_stream.proto";
 
 service Replication {
-  rpc GetAuthorAliases(GetAuthorAliasesRequest) returns (GetAuthorAliasesResponse);
+
   rpc GetAllEntriesByAuthors(GetAllEntriesByAuthorsRequest) returns (GetEntriesResponse);
   rpc GetSingleEntry(GetSingleEntryRequest) returns (GetEntriesResponse);
   rpc GetEntriesBySequenceRange(GetEntriesBySequenceRangeRequest) returns (GetEntriesResponse);
   rpc GetEntriesDelta(GetEntriesDeltaRequest) returns (GetEntriesDeltaResponse); 
+
+  rpc NewLogHeightsStream(NewLogHeightsStreamRequest) returns (stream NewLogHeightsStreamResponse); 
+
+  // Request a mapping from Author Public Keys to uint32 to save bandwidth with future requests.
+  // Returns the mapping and a "cache_key" which must be supplied in further requests when using the aliases.
+  // Possible exception response statuses:
+  //   * UNIMPLEMENTED    - The service may not support aliases. Callers must fall back to using Public Keys.
+  rpc GetAuthorAliases(GetAuthorAliasesRequest) returns (GetAuthorAliasesResponse);
 }

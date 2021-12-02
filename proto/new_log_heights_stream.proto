@@ -1,0 +1,24 @@
+syntax = "proto3";
+package replication;
+
+import "author.proto";
+
+message NewLogHeightsStreamRequest{
+  string cache_key = 1;
+  repeated Author authors = 2;
+}
+
+message NewLogHeightsStreamResponse{
+
+  message AuthorKnownLogHeights{
+    Author author = 1;
+    repeated LogHeight known_log_heights = 2;
+  }
+
+  message LogHeight{
+    uint64 log_id = 1;
+    uint64 sequence = 2;
+  }
+
+  repeated AuthorKnownLogHeights author_known_log_heights = 1;
+}
