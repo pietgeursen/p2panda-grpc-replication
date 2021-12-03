@@ -2,39 +2,51 @@ syntax = "proto3";
 package replication;
 
 import "get_entries.proto";
-import "get_entries_delta.proto";
+import "get_log_height_deltas.proto";
 import "set_author_aliases.proto";
 import "new_log_heights_stream.proto";
 import "check_author_alias_uuid_is_valid.proto";
 
 service Replication {
+  // REQUIRED = Servers MUST implement these methods
+  // OPTIONAL = Servers MAY implement these methods
 
-  // Get a all entries by the requested authors
+  // REQUIRED
+  // Get a all entries of all logs by the requested authors
   //
   // ERRORS
   // - Will return status FAILED_PRECONDITION if the aliases_uuid is invalid.
+  // - Will return status UNIMPLEMENTED if providing an aliases_uuid but author aliases are not supported.
   rpc GetAllEntriesByAuthors(GetAllEntriesByAuthorsRequest) returns (GetEntriesResponse);
 
-  // Get a single entry
+  // REQUIRED
+  // Get a single entry specified by its author, log_id and sequence.
   //
   // ERRORS
   // - Will return status FAILED_PRECONDITION if the aliases_uuid is invalid.
+  // - Will return status UNIMPLEMENTED if providing an aliases_uuid but author aliases are not supported.
   rpc GetSingleEntry(GetSingleEntryRequest) returns (GetEntriesResponse);
 
-  // Get a collection of entries specified by a range of sequence numbers
+  // REQUIRED
+  // Get a collection of entries for the requested authors specified by a range of sequence numbers
   //
   // The range is inclusive. The response will begin with sequence_start and end with sequence_end.
   //
   // ERRORS
   // - Will return status FAILED_PRECONDITION if the aliases_uuid is invalid.
+  // - Will return status UNIMPLEMENTED if providing an aliases_uuid as an Author but author aliases are not supported.
   rpc GetEntriesBySequenceRange(GetEntriesBySequenceRangeRequest) returns (GetEntriesResponse);
 
-  // Get any LogHeights that are newer than the ones provided in the request.
+  // REQUIRED
+  // Get any LogHeights for the requested authors that are newer than the ones provided in the request.
+  // Reponse would be an empty collection if there are no new updates.
   //
   // ERRORS
   // - Will return status FAILED_PRECONDITION if the aliases_uuid is invalid.
+  // - Will return status UNIMPLEMENTED if providing an aliases_uuid as an Author but author aliases are not supported.
   rpc GetLogHeightDeltas(GetLogHeightDeltasRequest) returns (GetLogHeightDeltasResponse); 
 
+  // OPTIONAL
   // Get a stream of new log heights for the requested authors.
   //
   // As the server stores new entries it will notify the client when they're by the requested authors.
@@ -42,17 +54,28 @@ service Replication {
   //
   // ERRORS
   // - Will return status FAILED_PRECONDITION if the aliases_uuid is invalid.
+  // - Will return status UNIMPLEMENTED if providing an aliases_uuid as an Author but author aliases are not supported.
+  // - Will return status UNIMPLEMENTED if this method is not supported.
   rpc NewLogHeightsStream(NewLogHeightsStreamRequest) returns (stream NewLogHeightsStreamResponse); 
 
+  // OPTIONAL
   // Set a mapping from uint32 to author public keys to save bandwidth in future requests.
   //
   // This is a mapping defined by the client and will be held by the server for some unknown time. The server may discard this mapping if it needs to free resources. The server would likely store these aliases in a LRU cache or similar.
   // Callers should expect requests that use the aliases to occasionally fail if the server discards the mapping.
   // Servers should protect against a malicious client setting a huge dictionary of nonsense values by validating the keys and discarding any keys that the server does not know about.
+  //
+  // ERRORS
+  // - Will return status UNIMPLEMENTED if author aliases are not supported.
+  // - Will return status ALREADY_EXISTS if aliases_uuid already exists.
   rpc SetAuthorAliases(SetAuthorAliasesRequest) returns (SetAuthorAliasesResponse);
 
-  // Check if an author aliass uuid is still valid.
+  // OPTIONAL
+  // Check if an author aliass uuid is still valid for use with this server.
   //
   // This doesn't guarantee that it will remain valid for future requests but it's a cheap way to fail fast. If the uuid is not valid the client should either use SetAuthorAliases or fallback to using full author public keys.
+  //
+  // ERRORS
+  // - Will return status UNIMPLEMENTED if author aliases are not supported.
   rpc CheckAuthorAliasUuidIsValid(CheckAuthorAliasUuidIsValidRequest) returns (CheckAuthorAliasUuidIsValidResponse);
 }

@@ -15,6 +15,7 @@ path = "src/server.rs"
 tonic = {version = "0.6", features = []}
 prost = "0.9"
 tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+futures = "0.3.18"
 
 [build-dependencies]
 tonic-build = "0.6"

@@ -1,7 +1,8 @@
 syntax = "proto3";
 package replication;
 
-// To use `author_alias` you'll need to first get author_aliases using the GetAuthorAliases endpoint. This also returns a cache_key that you must provide as part of a request using the `Author` message type.
+// An Author id.
+// Can be either the author public key bytes or the author alias (if supported).
 message Author {
   oneof author_type {
     bytes author_key = 1;
