@@ -4,7 +4,7 @@ package replication;
 import "author.proto";
 
 message NewLogHeightsStreamRequest{
-  string cache_key = 1;
+  string aliases_uuid = 1;
   repeated Author authors = 2;
 }
 

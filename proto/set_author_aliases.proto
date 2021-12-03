@@ -1,0 +1,11 @@
+syntax = "proto3";
+package replication;
+
+message SetAuthorAliasesRequest{
+  // A uuid created by the client to uniquely identify this set of aliases.
+  string aliases_uuid = 1;
+  // A mapping from an alias (uint32) to the public key bytes of an author.
+  map<uint32, bytes> author_aliases = 2;
+}
+
+message SetAuthorAliasesResponse{ }

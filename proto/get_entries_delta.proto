@@ -3,12 +3,12 @@ package replication;
 
 import "author.proto";
 
-message GetEntriesDeltaRequest{
-  string cache_key = 1;
+message GetLogHeightDeltasRequest{
+  string aliases_uuid = 1;
   repeated AuthorKnownLogHeights author_known_log_heights = 2;
 }
 
-message GetEntriesDeltaResponse{
+message GetLogHeightDeltasResponse{
   repeated AuthorKnownLogHeights author_known_log_heights = 1;
 }
 

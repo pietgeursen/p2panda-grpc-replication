@@ -4,11 +4,12 @@ package replication;
 import "author.proto";
 
 message GetAllEntriesByAuthorsRequest{
-  string cache_key = 1;
+  string aliases_uuid = 1;
   repeated Author authors = 2;
 }
 
 message GetEntriesBySequenceRangeRequest{
+  // An inclusive range. The response will begin with sequence_start and end with sequence_end.
   message RangeRequest {
     Author author = 1;
     uint64 log_id = 2;
@@ -16,12 +17,12 @@ message GetEntriesBySequenceRangeRequest{
     uint64 sequence_end = 4;
   }
 
-  string cache_key = 1;
+  string aliases_uuid = 1;
   repeated RangeRequest range = 2;
 }
 
 message GetSingleEntryRequest {
-  string cache_key = 1;
+  string aliases_uuid = 1;
   Author author = 2;
   uint64 log_id = 3;
   uint64 sequence = 4;

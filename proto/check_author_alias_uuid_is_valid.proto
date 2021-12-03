@@ -1,0 +1,11 @@
+syntax = "proto3";
+package replication;
+
+message CheckAuthorAliasUuidIsValidRequest{
+  // The UUID to check.
+  string aliases_uuid = 1;
+}
+
+message CheckAuthorAliasUuidIsValidResponse{ 
+  bool is_valid = 1;
+}
