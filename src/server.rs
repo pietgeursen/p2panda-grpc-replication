@@ -1,6 +1,10 @@
 use futures::Stream;
+use std::net::SocketAddr;
 use std::pin::Pin;
-use tonic::{transport::Server, Request, Response, Status};
+use tonic::{
+    Request, Response, Status,
+};
+use std::net::Ipv4Addr;
 
 use replication::replication_server::{Replication, ReplicationServer};
 use replication::*;
@@ -8,6 +12,12 @@ use replication::*;
 pub mod replication {
     tonic::include_proto!("replication"); // The string specified here must match the proto package name
 }
+
+mod qp2p_server;
+mod quiche_server;
+
+use quiche_server::QuicheServer;
+use qp2p_server::Qp2pServer;
 
 type ResponseStream =
     Pin<Box<dyn Stream<Item = Result<NewLogHeightsStreamResponse, Status>> + Send>>;
@@ -88,13 +98,23 @@ impl Replication for MyReplication {
     }
 }
 
+
+
 #[tokio::main]
 async fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let addr = "[::1]:50051".parse()?;
+    pretty_env_logger::init();
+
+
+
+    let addr: SocketAddr = "[::1]:50051".parse()?;
     let greeter = MyReplication::default();
     let service = ReplicationServer::new(greeter);
 
-    Server::builder().add_service(service).serve(addr).await?;
+    //Server::builder().add_service(service).serve(addr).await?;
+    //QuicheServer::new(service).serve(addr).await;
+    
+    let peers = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 8099))];
+    Qp2pServer::new(service, peers).await.unwrap().serve().await.unwrap();
 
     Ok(())
 }
