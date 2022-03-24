@@ -92,38 +92,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     trace!("startingggggggggggg !!!!!!!!");
 
     let addr: SocketAddr = "[::1]:50051".parse()?;
-    //    let greeter = MyReplication::default();
-    //    let service = ReplicationServer::new(greeter);
-    //
-    //    //Server::builder().add_service(service).serve(addr).await?;
-    //    //QuicheServer::new(service).serve(addr).await;
-    //
-    //    let peers = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 8099))];
-    //    let (server, mut endpoint) = Qp2pServer::new(service, peers).await.unwrap();
-    //
-    //    // TODO: just for debugging.
-    //    tokio::spawn(async move {
-    //        let (conn, mut incoming) = endpoint
-    //            .connect_to(&SocketAddr::from((Ipv4Addr::LOCALHOST, 8099)))
-    //            .await
-    //            .unwrap();
-    //
-    //        let msg = GetSingleEntryRequest {
-    //            author: None,
-    //            log_id: 23,
-    //            sequence: 3434,
-    //            aliases_uuid: "biglonguuid".to_owned(),
-    //        };
-    //        let path = get_replication_endpoint_path("GetSingleEntry");
-    //        let req = message_to_request(msg, path);
-    //        trace!("req: {:?}", req);
-    //
-    //        conn.send(serde_json::to_vec(&req).unwrap().into()).await;
-    //        let response = incoming.next().await;
-    //        trace!("response: {:?}", response);
-    //    });
-    //
-    //    server.serve().await.unwrap();
+        //let greeter = MyReplication::default();
+        //let service = ReplicationService::new(greeter);
+        let service = MyReplication{};
+    
+        //Server::builder().add_service(service).serve(addr).await?;
+        //QuicheServer::new(service).serve(addr).await;
+    
+        let peers = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 8099))];
+        let (server, mut endpoint) = Qp2pServer::new(service, peers).await.unwrap();
+    
+        // TODO: just for debugging.
+        tokio::spawn(async move {
+            let (conn, mut incoming) = endpoint
+                .connect_to(&SocketAddr::from((Ipv4Addr::LOCALHOST, 8099)))
+                .await
+                .unwrap();
+    
+            let msg = GetSingleEntryRequest {
+                author: None,
+                log_id: 23,
+                sequence: 3434,
+                aliases_uuid: "biglonguuid".to_owned(),
+            };
+    
+            //conn.send(serde_json::to_vec(&req).unwrap().into()).await;
+            //let response = incoming.next().await;
+            //trace!("response: {:?}", response);
+        });
+    
+        server.serve().await.unwrap();
 
     Ok(())
 }

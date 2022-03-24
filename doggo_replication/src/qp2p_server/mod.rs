@@ -41,9 +41,7 @@ where
             public_addr
         );
 
-        let p2panda_server = P2pandaServer{
-            service,
-        };
+        let p2panda_server = P2pandaServer::new(service);
 
         Ok((Qp2pServer {
             peers,
@@ -69,52 +67,10 @@ where
                 match incoming_messages.next().await {
                     Ok(Some(bytes)) => {
                         trace!("received bytes: {:?}", bytes);
-                        let json_req: RequestBuf = match serde_json::from_slice(&bytes){
-                            Ok(req) => req,
-                            _ => {
-                                warn!("unable to parse incoming bytes as a valid request");
-                                break
-                            }
-                        };
-                        trace!("json_req: {:?}", json_req);
-                        let mut response = self.service.call(json_req.into()).await;
+                        let response = self.p2panda_server.handle_request(&bytes).await;
                         trace!("called gprc method, response was: {:?}", response);
 
-                        let encoded_response = match response.as_mut() {
-                            Ok(res) => {
-                                let mut body_data = Vec::<u8>::new();
-
-                                loop {
-                                    if res.body().is_end_stream() {
-                                        break;
-                                    }
-                                    let data = res.body_mut().data().await;
-
-                                    match data {
-                                        Some(Ok(data)) => {
-                                            body_data.extend(&data.to_vec());
-                                        }
-                                        _ => break,
-                                    }
-                                }
-
-                                let res = Response {
-                                    body: Some(&body_data),
-                                    status: res.status().as_u16(),
-                                    grpc_status: res
-                                        .headers()
-                                        .get("grpc-status")
-                                        .and_then(|val| val.to_str().ok()),
-                                };
-                                serde_json::to_vec(&res).unwrap()
-                            }
-                            Err(err) => {
-                                error!("error from calling grpc handler {:?}", err);
-                                break;
-                            }
-                        };
-
-                        match connection.send(encoded_response.into()).await {
+                        match connection.send(response.into()).await {
                             Ok(_) => trace!("sent response ok"),
                             Err(err) => error!("error sending response to peer: {:?}", err),
                         };

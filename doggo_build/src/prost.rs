@@ -50,7 +50,9 @@ impl ServiceGenerator for ServiceGen {
         let tokens = quote! {
             #[derive(Debug, serde::Serialize, serde::Deserialize)]
             /// Our equivalent of the tonic::Status error type.
-            pub enum Status {}
+            pub enum Status {
+                RequestDecodeError
+            }
 
             // An enum that represents all the request types
             #requests
@@ -99,16 +101,22 @@ fn create_panda_server(
 
         impl<S: #trait_name> P2pandaServer<S>{
 
-            pub async fn serve(self){
-
+            pub fn new(service: S) -> Self {
+                Self{
+                    service
+                }
             }
 
-            pub async fn handle_request(&mut self, request: &[u8]) -> Result<Vec<u8>, serde_json::Error > {
-                let request = serde_json::from_slice(request)?;
-                let result = match request {
+            pub async fn handle_request(&mut self, request: &[u8]) -> Vec<u8>{
+                let request = serde_json::from_slice(request);
+
+                if request.is_err() {
+                    return serde_json::to_vec(&Result::<Vec<u8>, Status>::Err(Status::RequestDecodeError)).unwrap();
+                }
+
+                match request.unwrap() {
                     #match_arms
-                };
-                Ok(result)
+                }
             }
         }
     )
