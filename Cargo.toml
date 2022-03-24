@@ -1,21 +1,6 @@
-[package]
-name = "p2panda-replication"
-version = "0.1.0"
-edition = "2021"
+[workspace]
 
-[[bin]] # Bin to run the HelloWorld gRPC server
-name = "replication-server"
-path = "src/server.rs"
-
-#[[bin]] # Bin to run the HelloWorld gRPC client
-#name = "helloworld-client"
-#path = "src/client.rs"
-
-[dependencies]
-tonic = {version = "0.6", features = []}
-prost = "0.9"
-tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
-futures = "0.3.18"
-
-[build-dependencies]
-tonic-build = "0.6"
+members = [
+"doggo_build",
+"doggo_replication",
+]

@@ -1,0 +1,27 @@
+[package]
+name = "doggo-replication"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]] # Bin to run the HelloWorld gRPC server
+name = "replication-server"
+path = "src/server.rs"
+
+#[[bin]] # Bin to run the HelloWorld gRPC client
+#name = "replication-client"
+#path = "src/client.rs"
+
+[dependencies]
+doggo_build = {path = "../doggo_build"}
+http = "0.2.6"
+log = "0.4"
+prost = "0.9"
+pretty_env_logger = "0.4.0"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1.0", features = ["macros", "rt-multi-thread"] }
+futures = "0.3.18"
+qp2p = "0.28.5"
+
+[build-dependencies]
+doggo_build = {path = "../doggo_build"}

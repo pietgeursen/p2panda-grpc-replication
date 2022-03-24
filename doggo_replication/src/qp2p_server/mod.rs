@@ -1,36 +1,30 @@
-use log::{error, trace};
-use p2panda_replication::{Request, Response};
+use log::{error, trace, warn};
 use qp2p::{Config, ConnectionError, Endpoint, EndpointError, IncomingConnections};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
-use tonic::codegen::Body as CodegenBody;
-use tonic::{
-    body::BoxBody, codegen::http::Request as CodegenRequest,
-    codegen::http::Response as CodegenResponse, codegen::Never, codegen::Service, transport::Body,
-    transport::NamedService,
-};
-
+use crate::server::{ReplicationService, P2pandaServer};
+// TODO remove me
 // qp2p needs to know about its peers to initiate connections
-pub struct Qp2pServer<S> {
-    endpoint: Endpoint,
-    peers: Vec<SocketAddr>,
-    incoming_conns: IncomingConnections,
-    service: S,
+pub struct Qp2pServer<S> 
+where
+    S: ReplicationService,
+{
+    pub peers: Vec<SocketAddr>,
+    pub incoming_conns: IncomingConnections,
+    pub p2panda_server: P2pandaServer<S>,
 }
+
 
 impl<S> Qp2pServer<S>
 where
-    S: Service<CodegenRequest<Body>, Response = CodegenResponse<BoxBody>, Error = Never>
-        + NamedService
-        + Clone
-        + Send
-        + 'static,
-    S::Future: Send + 'static,
+    S: ReplicationService + 'static,
 {
-    pub async fn new(service: S, peers: Vec<SocketAddr>) -> Result<Self, EndpointError> {
+    // TODO: peers? remove?
+    pub async fn new(service: S, peers: Vec<SocketAddr>) -> Result<(Self,Endpoint) , EndpointError> {
+        trace!("new qp2p server");
         let (endpoint, incoming_conns, _contact) = Endpoint::new_peer(
-            SocketAddr::from((Ipv4Addr::LOCALHOST, 0)),
-            &peers,
+            SocketAddr::from((Ipv4Addr::LOCALHOST, 8099)),
+            &[],
             Config {
                 idle_timeout: Duration::from_secs(60 * 60).into(), // 1 hour idle timeout.
                 ..Default::default()
@@ -41,22 +35,29 @@ where
         let local_addr = endpoint.local_addr();
         let public_addr = endpoint.public_addr();
 
-        trace!("started qp2p endpoint with local_addr: {:?}, public_addr: {:?}", local_addr, public_addr);
+        trace!(
+            "started qp2p endpoint with local_addr: {:?}, public_addr: {:?}",
+            local_addr,
+            public_addr
+        );
 
-        Ok(Qp2pServer {
-            endpoint,
+        let p2panda_server = P2pandaServer{
+            service,
+        };
+
+        Ok((Qp2pServer {
             peers,
             incoming_conns,
-            service,
-        })
+            p2panda_server,
+        }, endpoint ))
     }
 
     pub async fn serve(mut self) -> Result<(), ConnectionError> {
         loop {
-            let connection = match self.incoming_conns.next().await {
-                Some((connection, _)) => {
+            let (connection, mut incoming_messages) = match self.incoming_conns.next().await {
+                Some((connection, incoming_messages)) => {
                     trace!("opened connection!");
-                    connection
+                    (connection, incoming_messages)
                 }
                 None => {
                     error!("connection open failed");
@@ -64,34 +65,36 @@ where
                 }
             };
 
-            // We expect _them_ to initiate requests and we'll reply
-            let (mut send, mut receive) = connection.open_bi().await?;
-
             loop {
-                match receive.next().await {
-                    Ok(bytes) => {
+                match incoming_messages.next().await {
+                    Ok(Some(bytes)) => {
                         trace!("received bytes: {:?}", bytes);
-                        let json_req: Request = serde_json::from_slice(&bytes).unwrap();
+                        let json_req: RequestBuf = match serde_json::from_slice(&bytes){
+                            Ok(req) => req,
+                            _ => {
+                                warn!("unable to parse incoming bytes as a valid request");
+                                break
+                            }
+                        };
                         trace!("json_req: {:?}", json_req);
                         let mut response = self.service.call(json_req.into()).await;
                         trace!("called gprc method, response was: {:?}", response);
 
                         let encoded_response = match response.as_mut() {
                             Ok(res) => {
-
                                 let mut body_data = Vec::<u8>::new();
 
                                 loop {
-                                    if res.body().is_end_stream(){
+                                    if res.body().is_end_stream() {
                                         break;
                                     }
                                     let data = res.body_mut().data().await;
 
-                                    match data{
+                                    match data {
                                         Some(Ok(data)) => {
                                             body_data.extend(&data.to_vec());
-                                        },
-                                        _ => break
+                                        }
+                                        _ => break,
                                     }
                                 }
 
@@ -111,10 +114,14 @@ where
                             }
                         };
 
-                        match send.send_user_msg(encoded_response.into()).await {
+                        match connection.send(encoded_response.into()).await {
                             Ok(_) => trace!("sent response ok"),
                             Err(err) => error!("error sending response to peer: {:?}", err),
                         };
+                    }
+                    Ok(None) => {
+                        trace!("no more messages from remote peer");
+                        break;
                     }
                     Err(err) => {
                         error!("Error receiving from stream: {:?}", err);
