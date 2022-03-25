@@ -2,22 +2,22 @@ use log::{error, trace, warn};
 use qp2p::{Config, ConnectionError, Endpoint, EndpointError, IncomingConnections};
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
-use crate::server::{ReplicationService, P2pandaServer};
+use crate::server::{Replication, ReplicationServer};
 // TODO remove me
 // qp2p needs to know about its peers to initiate connections
 pub struct Qp2pServer<S> 
 where
-    S: ReplicationService,
+    S: Replication,
 {
     pub peers: Vec<SocketAddr>,
     pub incoming_conns: IncomingConnections,
-    pub p2panda_server: P2pandaServer<S>,
+    pub p2panda_server: ReplicationServer<S>,
 }
 
 
 impl<S> Qp2pServer<S>
 where
-    S: ReplicationService + 'static,
+    S: Replication+ 'static,
 {
     // TODO: peers? remove?
     pub async fn new(service: S, peers: Vec<SocketAddr>) -> Result<(Self,Endpoint) , EndpointError> {
@@ -41,7 +41,7 @@ where
             public_addr
         );
 
-        let p2panda_server = P2pandaServer::new(service);
+        let p2panda_server = ReplicationServer::new(service);
 
         Ok((Qp2pServer {
             peers,

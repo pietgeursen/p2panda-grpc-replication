@@ -1,5 +1,5 @@
 use futures::Stream;
-use replication::server::ReplicationService;
+use replication::server::Replication;
 use std::net::Ipv4Addr;
 use std::net::SocketAddr;
 use std::pin::Pin;
@@ -36,7 +36,7 @@ impl MyReplication{
 }
 
 #[doggo_build::async_trait]
-impl ReplicationService for MyReplication {
+impl Replication for MyReplication {
     async fn get_all_entries_by_authors(
         &mut self,
         request: GetAllEntriesByAuthorsRequest,

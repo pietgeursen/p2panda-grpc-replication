@@ -40,7 +40,7 @@ pub struct ServiceGen {}
 
 impl ServiceGenerator for ServiceGen {
     fn generate(&mut self, service: prost_build::Service, buf: &mut String) {
-        let trait_name = format_ident!("{}Service", service.name);
+        let trait_name = format_ident!("{}", service.name);
         println!("{:?}", service);
 
         let requests = create_requests(&service);
@@ -91,15 +91,17 @@ fn create_panda_server(
         .map(|method| create_req_match_arm(method, &trait_name))
         .collect::<TokenStream>();
 
+    let server_name = format_ident!("{}Server", service.name);
+
     quote!(
 
         // If we have a type that implements #trait_name then we can pass it a request and
         // get a reponse from it.
-        pub struct P2pandaServer<S: #trait_name>{
+        pub struct #server_name<S: #trait_name>{
             service: S,
         }
 
-        impl<S: #trait_name> P2pandaServer<S>{
+        impl<S: #trait_name> #server_name<S>{
 
             pub fn new(service: S) -> Self {
                 Self{
