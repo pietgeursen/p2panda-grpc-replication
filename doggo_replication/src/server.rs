@@ -21,10 +21,14 @@ type ResponseStream =
     Pin<Box<dyn Stream<Item = Result<NewLogHeightsStreamResponse, Status>> + Send>>;
 
 #[derive(Debug, Default)]
-pub struct MyReplication {
+pub struct MyReplication {}
+
+use futures::channel::mpsc::Receiver;
+impl MyReplication {
+    async fn with_streaming_request(&mut self, messages: Receiver<u8>) {}
 }
 
-impl MyReplication{
+impl MyReplication {
     async fn get_all_entries_by_authors(
         &mut self,
         request: GetAllEntriesByAuthorsRequest,
@@ -69,9 +73,10 @@ impl Replication for MyReplication {
     async fn new_log_heights_stream(
         &mut self,
         request: NewLogHeightsStreamRequest,
-    ) -> Result<NewLogHeightsStreamResponse, Status> {
+    ) -> Result<futures::channel::mpsc::Receiver<NewLogHeightsStreamResponse>, Status> {
         todo!()
     }
+
     async fn set_author_aliases(
         &mut self,
         request: SetAuthorAliasesRequest,
@@ -92,36 +97,36 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     trace!("startingggggggggggg !!!!!!!!");
 
     let addr: SocketAddr = "[::1]:50051".parse()?;
-        //let greeter = MyReplication::default();
-        //let service = ReplicationService::new(greeter);
-        let service = MyReplication{};
-    
-        //Server::builder().add_service(service).serve(addr).await?;
-        //QuicheServer::new(service).serve(addr).await;
-    
-        let peers = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 8099))];
-        let (server, mut endpoint) = Qp2pServer::new(service, peers).await.unwrap();
-    
-        // TODO: just for debugging.
-        tokio::spawn(async move {
-            let (conn, mut incoming) = endpoint
-                .connect_to(&SocketAddr::from((Ipv4Addr::LOCALHOST, 8099)))
-                .await
-                .unwrap();
-    
-            let msg = GetSingleEntryRequest {
-                author: None,
-                log_id: 23,
-                sequence: 3434,
-                aliases_uuid: "biglonguuid".to_owned(),
-            };
-    
-            //conn.send(serde_json::to_vec(&req).unwrap().into()).await;
-            //let response = incoming.next().await;
-            //trace!("response: {:?}", response);
-        });
-    
-        server.serve().await.unwrap();
+    //let greeter = MyReplication::default();
+    //let service = ReplicationService::new(greeter);
+    let service = MyReplication {};
+
+    //Server::builder().add_service(service).serve(addr).await?;
+    //QuicheServer::new(service).serve(addr).await;
+
+    let peers = vec![SocketAddr::from((Ipv4Addr::LOCALHOST, 8099))];
+    let (server, mut endpoint) = Qp2pServer::new(service, peers).await.unwrap();
+
+    // TODO: just for debugging.
+    tokio::spawn(async move {
+        let (conn, mut incoming) = endpoint
+            .connect_to(&SocketAddr::from((Ipv4Addr::LOCALHOST, 8099)))
+            .await
+            .unwrap();
+
+        let msg = GetSingleEntryRequest {
+            author: None,
+            log_id: 23,
+            sequence: 3434,
+            aliases_uuid: "biglonguuid".to_owned(),
+        };
+
+        //conn.send(serde_json::to_vec(&req).unwrap().into()).await;
+        //let response = incoming.next().await;
+        //trace!("response: {:?}", response);
+    });
+
+    server.serve().await.unwrap();
 
     Ok(())
 }

@@ -109,7 +109,14 @@ fn create_panda_server(
                 }
             }
 
+            // TODO this might have to take incoming + outgoing connections and drive them itself.
+            // Streaming is going to need framing and shit. probably asynchronous_codec
             pub async fn handle_request(&mut self, request: &[u8]) -> Vec<u8>{
+                // pass the incoming_conns and the sending channel
+                // decode the request type
+                // use async_codec to read the incoming. Non streaming just takes one from the
+                // stream.
+
                 let request = serde_json::from_slice(request);
 
                 if request.is_err() {
@@ -212,7 +219,21 @@ fn create_server_method(method: &Method) -> proc_macro2::TokenStream {
     let method_name = create_server_method_name(method);
     let req_type = create_server_method_request_type(method);
     let res_type = create_server_method_response_type(method);
-    quote!( async fn #method_name(&mut self, request: #req_type) -> Result<#res_type, Status>; )
+
+    match (method.client_streaming, method.server_streaming) {
+        (false, false) => {
+            quote!( async fn #method_name(&mut self, request: #req_type) -> Result<#res_type, Status>; )
+        }
+        (true, false) => {
+            quote!( async fn #method_name(&mut self, request: futures::channel::mpsc::Receiver<#req_type>) -> Result<#res_type, Status>; )
+        }
+        (false, true) => {
+            quote!( async fn #method_name(&mut self, request: #req_type) -> Result<futures::channel::mpsc::Receiver<#res_type>, Status>; )
+        }
+        (true, true) => {
+            quote!( async fn #method_name(&mut self, request: futures::channel::mpsc::Receiver<#req_type>) -> Result<futures::channel::mpsc::Receiver<#res_type>, Status>; )
+        }
+    }
 }
 
 fn create_server_method_name(method: &Method) -> proc_macro2::TokenStream {
@@ -231,25 +252,36 @@ fn create_server_method_response_type(method: &Method) -> proc_macro2::TokenStre
 }
 
 fn create_req_enum_variant(method: &Method) -> proc_macro2::TokenStream {
-    let method = format_ident!("{}", &method.input_type);
+    // TODO streaming request variants don't take the request as an argument, they'll be sent
+    // later.
+    let method_name = format_ident!("{}", &method.input_type);
+
     quote!(
-    #method(
-        #[serde(
-            serialize_with = "serialize_message",
-            deserialize_with = "deserialize_message"
-        )]
-        #method
-        ),
+        #method_name,
     )
 }
 
 fn create_req_match_arm(method: &Method, service_trait: &Ident) -> proc_macro2::TokenStream {
     let input = format_ident!("{}", &method.input_type);
-    let method = create_server_method_name(method);
-    quote!( Requests::#input(req) => {
-        let result = <S as server::#service_trait>::#method(&mut self.service, req).await
-            .map(|response| response.encode_to_vec());
+    let method_name = create_server_method_name(method);
 
-        serde_json::to_vec(&result).expect("expected to be able to encode to vec")
-    },)
+    match (method.server_streaming, method.client_streaming) {
+        (false, false) => {
+            quote!( Requests::#input(req) => {
+                let result = <S as server::#service_trait>::#method_name(&mut self.service, req).await
+                    .map(|response| response.encode_to_vec());
+
+                serde_json::to_vec(&result).expect("expected to be able to encode to vec")
+            },)
+        }
+        (true, false) => {
+            quote!()
+        }
+        (false, true) => {
+            quote!()
+        }
+        (true, true) => {
+            quote!()
+        }
+    }
 }
