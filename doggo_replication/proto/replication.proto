@@ -78,4 +78,8 @@ service Replication {
   // ERRORS
   // - Will return status UNIMPLEMENTED if author aliases are not supported.
   rpc CheckAuthorAliasUuidIsValid(CheckAuthorAliasUuidIsValidRequest) returns (CheckAuthorAliasUuidIsValidResponse);
+
+
+  // TODO remove me
+  rpc TestStreams(stream NewLogHeightsStreamRequest ) returns (stream NewLogHeightsStreamResponse );
 }

@@ -3,6 +3,8 @@ use qp2p::{Config, ConnectionError, Endpoint, EndpointError, IncomingConnections
 use std::net::{Ipv4Addr, SocketAddr};
 use std::time::Duration;
 use crate::server::{Replication, ReplicationServer};
+use futures::channel::mpsc::channel;
+use futures::task::spawn::SpawnExt;
 // TODO remove me
 // qp2p needs to know about its peers to initiate connections
 pub struct Qp2pServer<S> 
@@ -63,12 +65,22 @@ where
                 }
             };
 
+            let (sender, incoming_receiver) = channel::<Vec<u8>>(10);
+            let (outgoing_sender, receiver) = channel::<Vec<u8>>(10);
+
+            SpawnExt::spawn(async move{
+
+            });
+            let response = self.p2panda_server.handle_request(receiver, outgoing_sender).await;
+
             loop {
+
+
+
                 match incoming_messages.next().await {
                     Ok(Some(bytes)) => {
                         trace!("received bytes: {:?}", bytes);
-                        let response = self.p2panda_server.handle_request(&bytes).await;
-                        trace!("called gprc method, response was: {:?}", response);
+                       trace!("called gprc method, response was: {:?}", response);
 
                         match connection.send(response.into()).await {
                             Ok(_) => trace!("sent response ok"),

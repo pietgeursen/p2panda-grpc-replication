@@ -95,6 +95,8 @@ fn create_panda_server(
 
     quote!(
 
+        pub type PinnedStream<T> = std::pin::Pin<std::boxed::Box<dyn futures::Stream<Item=T>>>;
+
         // If we have a type that implements #trait_name then we can pass it a request and
         // get a reponse from it.
         pub struct #server_name<S: #trait_name>{
@@ -111,22 +113,36 @@ fn create_panda_server(
 
             // TODO this might have to take incoming + outgoing connections and drive them itself.
             // Streaming is going to need framing and shit. probably asynchronous_codec
-            pub async fn handle_request(&mut self, request: &[u8]) -> Vec<u8>{
-                // pass the incoming_conns and the sending channel
-                // decode the request type
-                // use async_codec to read the incoming. Non streaming just takes one from the
-                // stream.
+            pub async fn handle_request(&mut self, incoming: futures::channel::mpsc::Receiver<Vec<u8>>, outgoing: futures::channel::mpsc::Sender<Vec<u8>>) -> Vec<u8>
+            {
+                use futures::prelude::*;
+                use futures::StreamExt;
+                use futures::FutureExt;
+                use futures::TryStreamExt;
+                // The first packet will be a `Requests`.
 
-                let request = serde_json::from_slice(request);
+                let request = match incoming.next().await{
+                    Some(bytes) => {
+                        serde_json::from_slice(&bytes)
+                    }
+                    None => {
+                        return Self::encode_status_to_vec(&Status::RequestDecodeError);
+                    }
+                };
 
                 if request.is_err() {
-                    return serde_json::to_vec(&Result::<Vec<u8>, Status>::Err(Status::RequestDecodeError)).unwrap();
+                    return Self::encode_status_to_vec(&Status::RequestDecodeError);
                 }
 
                 match request.unwrap() {
                     #match_arms
                 }
             }
+
+            fn encode_status_to_vec(status: &Status) -> Vec<u8>{
+                serde_json::to_vec(&Result::<Vec<u8>, Status>::Err(Status::RequestDecodeError)).unwrap()
+            }
+
         }
     )
 }
@@ -146,54 +162,6 @@ fn create_requests(service: &prost_build::Service) -> proc_macro2::TokenStream {
             pub enum Requests{
                 #request_variants
             }
-
-            fn serialize_message<S, M>(message: &M, serializer: S) -> Result<S::Ok, S::Error>
-            where
-                S: serde::ser::Serializer,
-                M: prost::Message,
-            {
-                serializer.serialize_bytes(&message.encode_to_vec())
-            }
-
-            fn deserialize_message<'de, D, M>(deserialize: D) -> Result<M, D::Error>
-            where
-                D: serde::de::Deserializer<'de>,
-                M: prost::Message + Default,
-            {
-                struct MessageVisitor<M> {
-                    msg: std::marker::PhantomData<M>,
-                }
-
-                impl<M> Default for MessageVisitor<M> {
-                    fn default() -> Self {
-                        Self {
-                            msg: Default::default(),
-                        }
-                    }
-                }
-                impl<'de, M> serde::de::Visitor<'de> for MessageVisitor<M>
-                where
-                    M: prost::Message + Default,
-                {
-                    type Value = M;
-
-                    fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                        formatter.write_str("a proto buf message encoded as bytes")
-                    }
-
-                    fn visit_bytes<E>(self, v: &[u8]) -> Result<Self::Value, E>
-                    where
-                        E: serde::de::Error,
-                    {
-                        M::decode(v).map_err(|err| {
-                            serde::de::Error::custom(format!("Protobuf decode failed: {:?}", err))
-                        })
-                    }
-                }
-
-                deserialize.deserialize_any(MessageVisitor::<M>::default())
-            }
-
     }
 }
 
@@ -219,21 +187,27 @@ fn create_server_method(method: &Method) -> proc_macro2::TokenStream {
     let method_name = create_server_method_name(method);
     let req_type = create_server_method_request_type(method);
     let res_type = create_server_method_response_type(method);
+    let req_stream_type = create_stream_type(&req_type);
+    let res_stream_type = create_stream_type(&res_type);
 
     match (method.client_streaming, method.server_streaming) {
         (false, false) => {
             quote!( async fn #method_name(&mut self, request: #req_type) -> Result<#res_type, Status>; )
         }
         (true, false) => {
-            quote!( async fn #method_name(&mut self, request: futures::channel::mpsc::Receiver<#req_type>) -> Result<#res_type, Status>; )
+            quote!( async fn #method_name<REQ: #req_stream_type>(&mut self, request: REQ) -> Result<#res_type, Status>; )
         }
         (false, true) => {
-            quote!( async fn #method_name(&mut self, request: #req_type) -> Result<futures::channel::mpsc::Receiver<#res_type>, Status>; )
+            quote!( async fn #method_name<RES: #res_stream_type>(&mut self, request: #req_type) -> Result<RES, Status>; )
         }
         (true, true) => {
-            quote!( async fn #method_name(&mut self, request: futures::channel::mpsc::Receiver<#req_type>) -> Result<futures::channel::mpsc::Receiver<#res_type>, Status>; )
+            quote!( async fn #method_name<REQ: #req_stream_type, RES: #res_stream_type>(&mut self, request: REQ) -> Result<RES, Status>; )
         }
     }
+}
+
+fn create_stream_type(item_type: &proc_macro2::TokenStream) -> proc_macro2::TokenStream{
+    quote!(futures::Stream<Item=#item_type> + std::marker::Unpin)
 }
 
 fn create_server_method_name(method: &Method) -> proc_macro2::TokenStream {
@@ -254,7 +228,7 @@ fn create_server_method_response_type(method: &Method) -> proc_macro2::TokenStre
 fn create_req_enum_variant(method: &Method) -> proc_macro2::TokenStream {
     // TODO streaming request variants don't take the request as an argument, they'll be sent
     // later.
-    let method_name = format_ident!("{}", &method.input_type);
+    let method_name = format_ident!("{}", &method.proto_name);
 
     quote!(
         #method_name,
@@ -264,18 +238,44 @@ fn create_req_enum_variant(method: &Method) -> proc_macro2::TokenStream {
 fn create_req_match_arm(method: &Method, service_trait: &Ident) -> proc_macro2::TokenStream {
     let input = format_ident!("{}", &method.input_type);
     let method_name = create_server_method_name(method);
+    //let enum_variant = create_req_enum_variant(method);
+    let enum_variant = format_ident!("{}", &method.proto_name);
+    let req_type = create_server_method_request_type(method);
 
-    match (method.server_streaming, method.client_streaming) {
+    match (method.client_streaming, method.server_streaming) {
         (false, false) => {
-            quote!( Requests::#input(req) => {
-                let result = <S as server::#service_trait>::#method_name(&mut self.service, req).await
-                    .map(|response| response.encode_to_vec());
+            quote!( Requests::#enum_variant => {
+                let stream = incoming
+                    .map(|bytes: Vec<u8>| -> Result<#req_type, Status> {
+                        #req_type::decode(bytes.into())
+                            .map_err(|_| Status::RequestDecodeError)
+                    })
+                    .and_then(|req|{
+                        <S as server::#service_trait>::#method_name(&mut self.service, req)
+                    })
+                    .map_ok(|res|{
+                        res.encode_to_vec()
+                    });
+                    
+                let result = Box::pin(stream)
+                    .next()
+                    .await;
 
                 serde_json::to_vec(&result).expect("expected to be able to encode to vec")
             },)
         }
         (true, false) => {
-            quote!()
+            quote!( Requests::#enum_variant => {
+                let stream = incoming
+                    .map(|bytes: Vec<u8>| -> Result<#req_type, Status> {
+                        #req_type::decode(bytes.into())
+                            .map_err(|_| Status::RequestDecodeError)
+                    });
+
+                let stream = Box::pin(stream);
+
+                <S as server::#service_trait>::#method_name(&mut self.service, stream);
+            },)
         }
         (false, true) => {
             quote!()
